@@ -449,6 +449,42 @@ func TestIntermediateUserSanitise(t *testing.T) {
 
 		assert.Equal(t, "test-username@example.com", user.Email)
 	})
+
+	t.Run("If user's position is too long, the value will be cleared", func(t *testing.T) {
+		user := IntermediateUser{
+			Username: "test-username",
+			Email:    "someone@test.com",
+			Position: strings.Repeat("some", 33),
+		}
+
+		user.Sanitise(log.New())
+
+		assert.Equal(t, "", user.Position)
+	})
+
+	t.Run("If user's first name is too long, the value will be cleared", func(t *testing.T) {
+		user := IntermediateUser{
+			Username:  "test-username",
+			Email:     "someone@test.com",
+			FirstName: strings.Repeat("some", 17),
+		}
+
+		user.Sanitise(log.New())
+
+		assert.Equal(t, "", user.FirstName)
+	})
+
+	t.Run("If user's last name is too long, the value will be cleared", func(t *testing.T) {
+		user := IntermediateUser{
+			Username: "test-username",
+			Email:    "someone@test.com",
+			LastName: strings.Repeat("some", 17),
+		}
+
+		user.Sanitise(log.New())
+
+		assert.Equal(t, "", user.LastName)
+	})
 }
 
 func TestTransformUsers(t *testing.T) {
