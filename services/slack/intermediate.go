@@ -88,6 +88,21 @@ func (u *IntermediateUser) Sanitise(logger log.FieldLogger) {
 		u.Email = u.Username + "@example.com"
 		logger.Warnf("User %s does not have an email address in the Slack export. Used %s as a placeholder. The user should update their email address once logged in to the system.", u.Username, u.Email)
 	}
+
+	if utf8.RuneCountInString(u.Position) > model.UserPositionMaxRunes {
+		logger.Warnf("User %s position %s is too long. Field will be cleared", u.Username, u.Position)
+		u.Position = ""
+	}
+
+	if utf8.RuneCountInString(u.FirstName) > model.UserFirstNameMaxRunes {
+		logger.Warnf("User %s first name %s is too long. Field will be cleared", u.Username, u.FirstName)
+		u.FirstName = ""
+	}
+
+	if utf8.RuneCountInString(u.LastName) > model.UserLastNameMaxRunes {
+		logger.Warnf("User %s last name %s is too long. Field will be cleared", u.Username, u.LastName)
+		u.LastName = ""
+	}
 }
 
 type IntermediatePost struct {
