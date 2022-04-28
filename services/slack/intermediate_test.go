@@ -451,39 +451,45 @@ func TestIntermediateUserSanitise(t *testing.T) {
 	})
 
 	t.Run("If user's position is too long, the value will be cleared", func(t *testing.T) {
+		badPosition := strings.Repeat("some", 33)
+
 		user := IntermediateUser{
 			Username: "test-username",
 			Email:    "someone@test.com",
-			Position: strings.Repeat("some", 33),
+			Position: badPosition,
 		}
 
 		user.Sanitise(log.New())
 
-		assert.Equal(t, "", user.Position)
+		assert.Equal(t, badPosition[0:model.UserPositionMaxRunes], user.Position)
 	})
 
-	t.Run("If user's first name is too long, the value will be cleared", func(t *testing.T) {
+	t.Run("If user's first name is too long, the value will be truncated", func(t *testing.T) {
+		badFirstNmae := strings.Repeat("some", 17)
+
 		user := IntermediateUser{
 			Username:  "test-username",
 			Email:     "someone@test.com",
-			FirstName: strings.Repeat("some", 17),
+			FirstName: badFirstNmae,
 		}
 
 		user.Sanitise(log.New())
 
-		assert.Equal(t, "", user.FirstName)
+		assert.Equal(t, badFirstNmae[0:model.UserFirstNameMaxRunes], user.FirstName)
 	})
 
 	t.Run("If user's last name is too long, the value will be cleared", func(t *testing.T) {
+		badLastName := strings.Repeat("some", 17)
+
 		user := IntermediateUser{
 			Username: "test-username",
 			Email:    "someone@test.com",
-			LastName: strings.Repeat("some", 17),
+			LastName: badLastName,
 		}
 
 		user.Sanitise(log.New())
 
-		assert.Equal(t, "", user.LastName)
+		assert.Equal(t, badLastName[0:model.UserLastNameMaxRunes], user.LastName)
 	})
 }
 
@@ -526,7 +532,7 @@ func TestTransformUsers(t *testing.T) {
 		},
 	}
 
-	slackTransformer.TransformUsers(users)
+	slackTransformer.TransformUsers(users, false, "")
 	require.Len(t, slackTransformer.Intermediate.UsersById, len(users))
 
 	for i, id := range []string{id1, id2, id3} {

@@ -40,6 +40,8 @@ func init() {
 	TransformSlackCmd.Flags().BoolP("skip-attachments", "a", false, "Skips copying the attachments from the import file")
 	TransformSlackCmd.Flags().BoolP("discard-invalid-props", "p", false, "Skips converting posts with invalid props instead discarding the props themselves")
 	TransformSlackCmd.Flags().Bool("debug", true, "Whether to show debug logs or not")
+	TransformSlackCmd.Flags().Bool("auth-data-as-email", false, "Set auth data the same as user's email")
+	TransformSlackCmd.Flags().StringP("auth-service", "s", "", "Set auth service value for SSO using")
 	TransformSlackCmd.Flags().String("redis-endpoint", "", "redis endpoint")
 	TransformSlackCmd.Flags().String("redis-login", "", "redis user")
 	TransformSlackCmd.Flags().String("redis-password", "", "redis password")
@@ -66,6 +68,8 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 	redisLogin, _ := cmd.Flags().GetString("redis-login")
 	redisPassword, _ := cmd.Flags().GetString("redis-password")
 	debug, _ := cmd.Flags().GetBool("debug")
+	setAuthDataAsEmail, _ := cmd.Flags().GetBool("auth-data-as-email")
+	authService, _ := cmd.Flags().GetString("auth-service")
 	importWorkflowMessages, _ := cmd.Flags().GetBool("import-workflow-messages")
 
 	// output file
@@ -125,7 +129,7 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 			Password: redisPassword,
 		}
 	}
-	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, importWorkflowMessages, redisConfig)
+	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, setAuthDataAsEmail, authService, importWorkflowMessages, redisConfig)
 	if err != nil {
 		return err
 	}
