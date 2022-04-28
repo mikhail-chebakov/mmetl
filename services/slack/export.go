@@ -110,13 +110,15 @@ func GetImportLineFromUser(user *IntermediateUser, team string) *app.LineImportD
 	return &app.LineImportData{
 		Type: "user",
 		User: &app.UserImportData{
-			Username:  model.NewString(user.Username),
-			Email:     model.NewString(user.Email),
-			Nickname:  model.NewString(""),
-			FirstName: model.NewString(user.FirstName),
-			LastName:  model.NewString(user.LastName),
-			Position:  model.NewString(user.Position),
-			Roles:     model.NewString(model.SystemUserRoleId),
+			Username:    model.NewString(user.Username),
+			Email:       model.NewString(user.Email),
+			Nickname:    model.NewString(""),
+			FirstName:   model.NewString(user.FirstName),
+			LastName:    model.NewString(user.LastName),
+			Position:    model.NewString(user.Position),
+			Roles:       model.NewString(model.SystemUserRoleId),
+			AuthService: model.NewString(user.AuthService),
+			AuthData:    user.AuthData,
 			Teams: &[]app.UserTeamImportData{
 				{
 					Name:     model.NewString(team),

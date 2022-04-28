@@ -4,9 +4,10 @@ import (
 	"archive/zip"
 	"os"
 
-	"github.com/mattermost/mmetl/services/slack"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/mattermost/mmetl/services/slack"
 )
 
 var CheckCmd = &cobra.Command{
@@ -75,7 +76,7 @@ func checkSlackCmdF(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = slackTransformer.Transform(slackExport, "", true, true)
+	err = slackTransformer.Transform(slackExport, "", true, true, false, "")
 	if err != nil {
 		return err
 	}

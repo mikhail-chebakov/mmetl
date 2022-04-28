@@ -55,9 +55,6 @@ func (c *IntermediateChannel) Sanitise(logger log.FieldLogger) {
 	if len(c.DisplayName) == 1 {
 		c.DisplayName = "slack-channel-" + c.DisplayName
 	}
-	if !isValidChannelNameCharacters(c.DisplayName) {
-		c.DisplayName = strings.ToLower(c.Id)
-	}
 
 	if utf8.RuneCountInString(c.Purpose) > model.ChannelPurposeMaxRunes {
 		logger.Warnf("Channel %s purpose exceeds the maximum length. It will be truncated when imported.", c.DisplayName)
@@ -79,6 +76,8 @@ type IntermediateUser struct {
 	Email       string   `json:"email"`
 	Password    string   `json:"password"`
 	Memberships []string `json:"memberships"`
+	AuthData    *string  `json:"auth_data"`
+	AuthService string   `json:"auth_service"`
 }
 
 func (u *IntermediateUser) Sanitise(logger log.FieldLogger) {
@@ -88,18 +87,18 @@ func (u *IntermediateUser) Sanitise(logger log.FieldLogger) {
 	}
 
 	if utf8.RuneCountInString(u.Position) > model.UserPositionMaxRunes {
-		logger.Warnf("User %s position %s is too long. Field will be cleared", u.Username, u.Position)
-		u.Position = ""
+		logger.Warnf("User %s position %s is too long. Field will be truncated", u.Username, u.Position)
+		u.Position = u.Position[0:model.UserPositionMaxRunes]
 	}
 
 	if utf8.RuneCountInString(u.FirstName) > model.UserFirstNameMaxRunes {
-		logger.Warnf("User %s first name %s is too long. Field will be cleared", u.Username, u.FirstName)
-		u.FirstName = ""
+		logger.Warnf("User %s first name %s is too long. Field will be truncated", u.Username, u.FirstName)
+		u.FirstName = u.FirstName[0:model.UserFirstNameMaxRunes]
 	}
 
 	if utf8.RuneCountInString(u.LastName) > model.UserLastNameMaxRunes {
-		logger.Warnf("User %s last name %s is too long. Field will be cleared", u.Username, u.LastName)
-		u.LastName = ""
+		logger.Warnf("User %s last name %s is too long. Field will be truncated", u.Username, u.LastName)
+		u.LastName = u.LastName[0:model.UserLastNameMaxRunes]
 	}
 }
 
@@ -125,7 +124,7 @@ type Intermediate struct {
 	Posts           []*IntermediatePost          `json:"posts"`
 }
 
-func (t *Transformer) TransformUsers(users []SlackUser) {
+func (t *Transformer) TransformUsers(users []SlackUser, authDataAsEmail bool, authService string) {
 	t.Logger.Info("Transforming users")
 
 	resultUsers := map[string]*IntermediateUser{}
@@ -137,12 +136,17 @@ func (t *Transformer) TransformUsers(users []SlackUser) {
 			LastName:  user.Profile.LastName,
 			Position:  user.Profile.Title,
 			Email:     user.Profile.Email,
-			Password:  model.NewId(),
 		}
 
 		newUser.Sanitise(t.Logger)
+
+		if authDataAsEmail && authService != "" {
+			newUser.AuthData = &newUser.Email
+			newUser.AuthService = authService
+		}
+
 		resultUsers[newUser.Id] = newUser
-		t.Logger.Debugf("Slack user with email %s and password %s has been imported.", newUser.Email, newUser.Password)
+		t.Logger.Debugf("Slack user with email %s has been imported.", newUser.Email)
 	}
 
 	t.Intermediate.UsersById = resultUsers
@@ -185,7 +189,7 @@ func (t *Transformer) TransformChannels(channels []SlackChannel) []*Intermediate
 		newChannel := &IntermediateChannel{
 			OriginalName: getOriginalName(channel),
 			Name:         name,
-			DisplayName:  name,
+			DisplayName:  getOriginalName(channel),
 			Members:      validMembers,
 			Purpose:      channel.Purpose.Value,
 			Header:       channel.Topic.Value,
@@ -568,8 +572,8 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 	return nil
 }
 
-func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool) error {
-	t.TransformUsers(slackExport.Users)
+func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps, authDataAsEmail bool, authService string) error {
+	t.TransformUsers(slackExport.Users, authDataAsEmail, authService)
 
 	if err := t.TransformAllChannels(slackExport); err != nil {
 		return err

@@ -40,6 +40,8 @@ func init() {
 	TransformSlackCmd.Flags().BoolP("skip-attachments", "a", false, "Skips copying the attachments from the import file")
 	TransformSlackCmd.Flags().BoolP("discard-invalid-props", "p", false, "Skips converting posts with invalid props instead discarding the props themselves")
 	TransformSlackCmd.Flags().Bool("debug", true, "Whether to show debug logs or not")
+	TransformSlackCmd.Flags().Bool("auth-data-as-email", false, "Set auth data the same as user's email")
+	TransformSlackCmd.Flags().StringP("auth-service", "s", "", "Set auth service value for SSO using")
 
 	TransformCmd.AddCommand(
 		TransformSlackCmd,
@@ -59,6 +61,8 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 	skipAttachments, _ := cmd.Flags().GetBool("skip-attachments")
 	discardInvalidProps, _ := cmd.Flags().GetBool("discard-invalid-props")
 	debug, _ := cmd.Flags().GetBool("debug")
+	setAuthDataAsEmail, _ := cmd.Flags().GetBool("auth-data-as-email")
+	authService, _ := cmd.Flags().GetString("auth-service")
 
 	// output file
 	if fileInfo, err := os.Stat(outputFilePath); err != nil && !os.IsNotExist(err) {
@@ -108,7 +112,7 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps)
+	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, setAuthDataAsEmail, authService)
 	if err != nil {
 		return err
 	}
