@@ -256,7 +256,7 @@ func (t *Transformer) TransformAllChannels(slackExport *SlackExport) error {
 	return nil
 }
 
-func AddPostToThreads(original SlackPost, post *IntermediatePost, threads map[string]*IntermediatePost, channel *IntermediateChannel, timestamps map[int64]bool) {
+func AddPostToThreads(original SlackPost, post *IntermediatePost, threads ThreadsStorage, channel *IntermediateChannel, timestamps map[int64]bool) {
 	// direct and group posts need the channel members in the import line
 	if channel.Type == model.ChannelTypeDirect || channel.Type == model.ChannelTypeGroup {
 		post.IsDirect = true
@@ -277,8 +277,8 @@ func AddPostToThreads(original SlackPost, post *IntermediatePost, threads map[st
 
 	// if post is part of a thread
 	if original.ThreadTS != "" && original.ThreadTS != original.TimeStamp {
-		rootPost, ok := threads[original.ThreadTS]
-		if !ok {
+		rootPost := threads.LookupThread(original.ThreadTS)
+		if rootPost == nil {
 			log.Printf("ERROR processing post in thread, couldn't find rootPost: %+v\n", original)
 			return
 		}
@@ -288,18 +288,17 @@ func AddPostToThreads(original SlackPost, post *IntermediatePost, threads map[st
 
 	// if post is the root of a thread
 	if original.TimeStamp == original.ThreadTS {
-		if threads[original.ThreadTS] != nil {
+		if threads.HasThread(original.ThreadTS) {
 			log.Println("WARNING: overwriting root post for thread " + original.ThreadTS)
 		}
-		threads[original.ThreadTS] = post
+		threads.StoreThread(original.ThreadTS, post)
 		return
 	}
 
-	if threads[original.TimeStamp] != nil {
+	if threads.HasThread(original.TimeStamp) {
 		log.Println("WARNING: overwriting root post for thread " + original.TimeStamp)
 	}
-
-	threads[original.TimeStamp] = post
+	threads.StoreThread(original.TimeStamp, post)
 }
 
 func buildChannelsByOriginalNameMap(intermediate *Intermediate) map[string]*IntermediateChannel {
@@ -355,7 +354,14 @@ func addFileToPost(file *SlackFile, uploads map[string]*zip.File, post *Intermed
 	return nil
 }
 
-func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool) error {
+func newChannelThreadsStorage(channelName string, redisConfig *RedisConfig) (ThreadsStorage, error) {
+	if redisConfig == nil {
+		return newMemoryStorage(), nil
+	}
+	return newRedisStorage(redisConfig, channelName)
+}
+
+func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool, redisConfig *RedisConfig) error {
 	t.Logger.Info("Transforming posts")
 
 	newGroupChannels := []*IntermediateChannel{}
@@ -374,7 +380,10 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 		sort.Slice(channelPosts, func(i, j int) bool {
 			return SlackConvertTimeStamp(channelPosts[i].TimeStamp) < SlackConvertTimeStamp(channelPosts[j].TimeStamp)
 		})
-		threads := map[string]*IntermediatePost{}
+		threads, err := newChannelThreadsStorage(originalChannelName, redisConfig)
+		if err != nil {
+			return err
+		}
 
 		for _, post := range channelPosts {
 			switch {
@@ -539,11 +548,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 			}
 		}
 
-		channelPosts := []*IntermediatePost{}
-		for _, post := range threads {
-			channelPosts = append(channelPosts, post)
-		}
-		resultPosts = append(resultPosts, channelPosts...)
+		resultPosts = append(resultPosts, threads.GetChangedThreads()...)
 	}
 
 	t.Intermediate.Posts = resultPosts
@@ -553,7 +558,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 	return nil
 }
 
-func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool) error {
+func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool, redisConfig *RedisConfig) error {
 	t.TransformUsers(slackExport.Users)
 
 	if err := t.TransformAllChannels(slackExport); err != nil {
@@ -563,7 +568,7 @@ func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string,
 	t.PopulateUserMemberships()
 	t.PopulateChannelMemberships()
 
-	if err := t.TransformPosts(slackExport, attachmentsDir, skipAttachments, discardInvalidProps); err != nil {
+	if err := t.TransformPosts(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, redisConfig); err != nil {
 		return err
 	}
 

@@ -15,6 +15,15 @@ github.com/RoaringBitmap/roaring
 github.com/RoaringBitmap/roaring/internal
 # github.com/advancedlogic/GoOse v0.0.0-20210820140952-9d5822d4a625
 github.com/advancedlogic/GoOse
+# github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a
+github.com/alicebob/gopher-json
+# github.com/alicebob/miniredis/v2 v2.20.0
+## explicit
+github.com/alicebob/miniredis/v2
+github.com/alicebob/miniredis/v2/geohash
+github.com/alicebob/miniredis/v2/hyperloglog
+github.com/alicebob/miniredis/v2/metro
+github.com/alicebob/miniredis/v2/server
 # github.com/andybalholm/brotli v1.0.4
 github.com/andybalholm/brotli
 # github.com/andybalholm/cascadia v1.3.1
@@ -191,6 +200,7 @@ github.com/go-morph/morph/sources
 github.com/go-morph/morph/sources/file
 github.com/go-morph/morph/sources/go_bindata
 # github.com/go-redis/redis/v8 v8.11.4
+## explicit
 github.com/go-redis/redis/v8
 github.com/go-redis/redis/v8/internal
 github.com/go-redis/redis/v8/internal/hashtag
@@ -607,6 +617,11 @@ github.com/yuin/goldmark/renderer
 github.com/yuin/goldmark/renderer/html
 github.com/yuin/goldmark/text
 github.com/yuin/goldmark/util
+# github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9
+github.com/yuin/gopher-lua
+github.com/yuin/gopher-lua/ast
+github.com/yuin/gopher-lua/parse
+github.com/yuin/gopher-lua/pm
 # go.etcd.io/bbolt v1.3.6
 go.etcd.io/bbolt
 # go.uber.org/atomic v1.9.0
