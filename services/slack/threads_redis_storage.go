@@ -44,6 +44,7 @@ func (s *redisStorage) LookupThread(threadTS string) *IntermediatePost {
 	return &result
 }
 
+// nolint:gosimple
 func (s *redisStorage) HasThread(threadTS string) bool {
 	if s.memory.HasThread(threadTS) {
 		return true
