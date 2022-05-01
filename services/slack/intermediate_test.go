@@ -602,10 +602,10 @@ func TestAddPostToThreads(t *testing.T) {
 			t.Run(tc.Name, func(t *testing.T) {
 				original := SlackPost{TimeStamp: "thread-ts"}
 				channel := &IntermediateChannel{Type: model.ChannelTypeOpen}
-				threads := map[string]*IntermediatePost{}
+				threads := newMemoryStorage()
 
 				AddPostToThreads(original, tc.Post, threads, channel, tc.Timestamps)
-				newPost := threads["thread-ts"]
+				newPost := threads.LookupThread("thread-ts")
 				require.NotNil(t, newPost)
 				require.Equal(t, tc.Post, newPost)
 				require.Equal(t, tc.ExpectedTimestamp, newPost.CreateAt)

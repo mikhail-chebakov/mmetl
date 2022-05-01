@@ -40,6 +40,9 @@ func init() {
 	TransformSlackCmd.Flags().BoolP("skip-attachments", "a", false, "Skips copying the attachments from the import file")
 	TransformSlackCmd.Flags().BoolP("discard-invalid-props", "p", false, "Skips converting posts with invalid props instead discarding the props themselves")
 	TransformSlackCmd.Flags().Bool("debug", true, "Whether to show debug logs or not")
+	TransformSlackCmd.Flags().String("redis-endpoint", "", "redis endpoint")
+	TransformSlackCmd.Flags().String("redis-login", "", "redis user")
+	TransformSlackCmd.Flags().String("redis-password", "", "redis password")
 
 	TransformCmd.AddCommand(
 		TransformSlackCmd,
@@ -58,6 +61,9 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 	skipConvertPosts, _ := cmd.Flags().GetBool("skip-convert-posts")
 	skipAttachments, _ := cmd.Flags().GetBool("skip-attachments")
 	discardInvalidProps, _ := cmd.Flags().GetBool("discard-invalid-props")
+	redisEndpoint, _ := cmd.Flags().GetString("redis-endpoint")
+	redisLogin, _ := cmd.Flags().GetString("redis-login")
+	redisPassword, _ := cmd.Flags().GetString("redis-password")
 	debug, _ := cmd.Flags().GetBool("debug")
 
 	// output file
@@ -108,7 +114,15 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps)
+	var redisConfig *slack.RedisConfig
+	if len(redisEndpoint) > 0 {
+		redisConfig = &slack.RedisConfig{
+			Addr:     redisEndpoint,
+			User:     redisLogin,
+			Password: redisPassword,
+		}
+	}
+	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, redisConfig)
 	if err != nil {
 		return err
 	}
