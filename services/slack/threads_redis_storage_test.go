@@ -14,10 +14,11 @@ func TestRedisStorage(t *testing.T) {
 	redisCfg := &RedisConfig{
 		Addr: redis.Addr(),
 	}
+	factory, err := newRedisFactory(redisCfg)
+	assert.NoError(t, err)
 
 	t.Run("store, lookup post", func(t *testing.T) {
-		storage, err := newRedisStorage(redisCfg, "channel")
-		assert.NoError(t, err)
+		storage := factory.newRedisStorage("channel")
 
 		threadTS := "11"
 		post := &IntermediatePost{
@@ -34,8 +35,7 @@ func TestRedisStorage(t *testing.T) {
 	})
 
 	t.Run("lookup post from another storage", func(t *testing.T) {
-		storage, err := newRedisStorage(redisCfg, "channel")
-		assert.NoError(t, err)
+		storage := factory.newRedisStorage("channel")
 
 		threadTS := "21"
 		post := &IntermediatePost{
@@ -45,16 +45,14 @@ func TestRedisStorage(t *testing.T) {
 		storage.StoreThread("22", post)
 		assert.Equal(t, 2, len(storage.GetChangedThreads()))
 
-		anotherStorage, err := newRedisStorage(redisCfg, "channel")
-		assert.NoError(t, err)
+		anotherStorage := factory.newRedisStorage("channel")
 		assert.NotNil(t, anotherStorage.LookupThread(threadTS))
 		assert.Equal(t, "msg", anotherStorage.LookupThread(threadTS).Message)
 		assert.Equal(t, 1, len(anotherStorage.GetChangedThreads())) // only the post that was looked up should be marked as changed
 	})
 
 	t.Run("post should retain replies", func(t *testing.T) {
-		storage, err := newRedisStorage(redisCfg, "channel")
-		assert.NoError(t, err)
+		storage := factory.newRedisStorage("channel")
 
 		threadTS := "31"
 		post := &IntermediatePost{

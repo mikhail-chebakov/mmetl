@@ -354,11 +354,18 @@ func addFileToPost(file *SlackFile, uploads map[string]*zip.File, post *Intermed
 	return nil
 }
 
-func newChannelThreadsStorage(channelName string, redisConfig *RedisConfig) (ThreadsStorage, error) {
+func (t *Transformer) newChannelThreadsStorage(channelName string, redisConfig *RedisConfig) (ThreadsStorage, error) {
 	if redisConfig == nil {
 		return newMemoryStorage(), nil
 	}
-	return newRedisStorage(redisConfig, channelName)
+	if t.redisFactory == nil {
+		factory, err := newRedisFactory(redisConfig)
+		if err != nil {
+			return nil, err
+		}
+		t.redisFactory = factory
+	}
+	return t.redisFactory.newRedisStorage(channelName), nil
 }
 
 func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool, redisConfig *RedisConfig) error {
@@ -380,7 +387,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 		sort.Slice(channelPosts, func(i, j int) bool {
 			return SlackConvertTimeStamp(channelPosts[i].TimeStamp) < SlackConvertTimeStamp(channelPosts[j].TimeStamp)
 		})
-		threads, err := newChannelThreadsStorage(originalChannelName, redisConfig)
+		threads, err := t.newChannelThreadsStorage(originalChannelName, redisConfig)
 		if err != nil {
 			return err
 		}

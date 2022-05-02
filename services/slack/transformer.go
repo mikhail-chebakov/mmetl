@@ -6,6 +6,7 @@ type Transformer struct {
 	TeamName     string
 	Intermediate *Intermediate
 	Logger       log.FieldLogger
+	redisFactory *redisFactory
 }
 
 func NewTransformer(teamName string, logger log.FieldLogger) *Transformer {
