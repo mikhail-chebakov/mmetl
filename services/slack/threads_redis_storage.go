@@ -71,16 +71,25 @@ func (s *redisStorage) GetChangedThreads() []*IntermediatePost {
 	return s.memory.GetChangedThreads()
 }
 
-func newRedisStorage(cfg *RedisConfig, channel string) (ThreadsStorage, error) {
+type redisFactory struct {
+	client *redis.Client
+}
+
+func newRedisFactory(cfg *RedisConfig) (*redisFactory, error) {
 	opts := &redis.Options{Addr: cfg.Addr, Username: cfg.User, Password: cfg.Password}
 	client := redis.NewClient(opts)
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		return nil, fmt.Errorf("ping redis failure: %w", err)
 	}
+	return &redisFactory{
+		client: client,
+	}, nil
+}
 
+func (s *redisFactory) newRedisStorage(channel string) ThreadsStorage {
 	return &redisStorage{
 		memory:  newMemoryStorage(),
-		client:  client,
+		client:  s.client,
 		channel: channel,
-	}, nil
+	}
 }
