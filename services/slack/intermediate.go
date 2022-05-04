@@ -110,6 +110,15 @@ type Intermediate struct {
 	Posts           []*IntermediatePost          `json:"posts"`
 }
 
+func (t *Transformer) transformUserName(user SlackUser) string {
+	// This is a crutch
+	email := user.Profile.Email
+	if strings.Contains(email, "tinkoff.") && strings.Contains(email, "@") {
+		return email[:strings.Index(email, "@")]
+	}
+	return user.Username
+}
+
 func (t *Transformer) TransformUsers(users []SlackUser) {
 	t.Logger.Info("Transforming users")
 
@@ -117,7 +126,7 @@ func (t *Transformer) TransformUsers(users []SlackUser) {
 	for _, user := range users {
 		newUser := &IntermediateUser{
 			Id:        user.Id,
-			Username:  user.Username,
+			Username:  t.transformUserName(user),
 			FirstName: user.Profile.FirstName,
 			LastName:  user.Profile.LastName,
 			Position:  user.Profile.Title,
@@ -368,7 +377,27 @@ func (t *Transformer) newChannelThreadsStorage(channelName string, redisConfig *
 	return t.redisFactory.newRedisStorage(channelName), nil
 }
 
-func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool, redisConfig *RedisConfig) error {
+func (t *Transformer) selectOrCreateWorkflowUser(post SlackPost) *IntermediateUser {
+	userID := "importedworkflow"
+	existingUser, ok := t.Intermediate.UsersById[userID]
+	if ok {
+		return existingUser
+	}
+	newUser := &IntermediateUser{
+		Id:        userID,
+		Username:  "imported-workflow",
+		FirstName: "imported-workflow",
+		LastName:  "",
+		Email:     "imported-workflow@tinkoff.ru",
+		Password:  model.NewId(),
+	}
+
+	newUser.Sanitise(t.Logger)
+	t.Intermediate.UsersById[userID] = newUser
+	return newUser
+}
+
+func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps, importWorkflowMessages bool, redisConfig *RedisConfig) error {
 	t.Logger.Info("Transforming posts")
 
 	newGroupChannels := []*IntermediateChannel{}
@@ -471,8 +500,53 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 
 			// bot message
 			case post.IsBotMessage():
-				// log.Println("Slack Import: bot messages are not yet supported")
-				break
+				if !importWorkflowMessages {
+					continue
+				}
+				if post.User == "" {
+					t.Logger.Warn("Unable to import bot_message as the user field is missing.")
+					continue
+				}
+				author := t.selectOrCreateWorkflowUser(post)
+				newPost := &IntermediatePost{
+					User:     author.Username,
+					Channel:  channel.Name,
+					Message:  post.Text,
+					CreateAt: SlackConvertTimeStamp(post.TimeStamp),
+				}
+				if (post.File != nil || post.Files != nil) && !skipAttachments {
+					if post.File != nil {
+						err := addFileToPost(post.File, slackExport.Uploads, newPost, attachmentsDir)
+						if err != nil {
+							t.Logger.WithError(err).Error("Failed to add file to post")
+						}
+					} else if post.Files != nil {
+						for _, file := range post.Files {
+							err := addFileToPost(file, slackExport.Uploads, newPost, attachmentsDir)
+							if err != nil {
+								t.Logger.WithError(err).Error("Failed to add file to post")
+							}
+						}
+					}
+				}
+
+				if len(post.Attachments) > 0 {
+					props := model.StringInterface{"attachments": post.Attachments}
+					propsB, _ := json.Marshal(props)
+
+					if utf8.RuneCountInString(string(propsB)) <= model.PostPropsMaxRunes {
+						newPost.Props = props
+					} else {
+						if discardInvalidProps {
+							t.Logger.Warn("Unable import post as props exceed the maximum character count. Skipping as --discard-invalid-props is enabled.")
+							continue
+						} else {
+							t.Logger.Warn("Unable to add props to post as they exceed the maximum character count.")
+						}
+					}
+				}
+
+				AddPostToThreads(post, newPost, threads, channel, timestamps)
 
 			// channel join/leave messages
 			case post.IsJoinLeaveMessage():
@@ -565,7 +639,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 	return nil
 }
 
-func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps bool, redisConfig *RedisConfig) error {
+func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps, importWorkflowMessages bool, redisConfig *RedisConfig) error {
 	t.TransformUsers(slackExport.Users)
 
 	if err := t.TransformAllChannels(slackExport); err != nil {
@@ -575,7 +649,7 @@ func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string,
 	t.PopulateUserMemberships()
 	t.PopulateChannelMemberships()
 
-	if err := t.TransformPosts(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, redisConfig); err != nil {
+	if err := t.TransformPosts(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, importWorkflowMessages, redisConfig); err != nil {
 		return err
 	}
 

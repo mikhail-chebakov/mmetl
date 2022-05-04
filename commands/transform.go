@@ -43,6 +43,7 @@ func init() {
 	TransformSlackCmd.Flags().String("redis-endpoint", "", "redis endpoint")
 	TransformSlackCmd.Flags().String("redis-login", "", "redis user")
 	TransformSlackCmd.Flags().String("redis-password", "", "redis password")
+	TransformSlackCmd.Flags().Bool("import-workflow-messages", false, "import workflow messages")
 
 	TransformCmd.AddCommand(
 		TransformSlackCmd,
@@ -65,6 +66,7 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 	redisLogin, _ := cmd.Flags().GetString("redis-login")
 	redisPassword, _ := cmd.Flags().GetString("redis-password")
 	debug, _ := cmd.Flags().GetBool("debug")
+	importWorkflowMessages, _ := cmd.Flags().GetBool("import-workflow-messages")
 
 	// output file
 	if fileInfo, err := os.Stat(outputFilePath); err != nil && !os.IsNotExist(err) {
@@ -104,6 +106,7 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 	}
 
 	logger := log.New()
+	logger.Level = log.WarnLevel
 	if debug {
 		logger.Level = log.DebugLevel
 	}
@@ -122,7 +125,7 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 			Password: redisPassword,
 		}
 	}
-	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, redisConfig)
+	err = slackTransformer.Transform(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, importWorkflowMessages, redisConfig)
 	if err != nil {
 		return err
 	}
