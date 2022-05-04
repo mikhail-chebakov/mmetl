@@ -663,7 +663,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 	return nil
 }
 
-func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps, authDataAsEmail bool, authService string,  importWorkflowMessages bool, redisConfig *RedisConfig) error {
+func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps, authDataAsEmail bool, authService string, importWorkflowMessages bool, redisConfig *RedisConfig) error {
 	t.TransformUsers(slackExport.Users, authDataAsEmail, authService)
 
 	if err := t.TransformAllChannels(slackExport); err != nil {
