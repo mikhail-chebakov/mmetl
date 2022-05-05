@@ -75,6 +75,8 @@ func transformSlackCmdF(cmd *cobra.Command, args []string) error {
 	skipPosts, _ := cmd.Flags().GetBool("skip-posts")
 	skipChannels, _ := cmd.Flags().GetBool("skip-channels")
 
+	skipConvertPosts = skipConvertPosts || skipPosts
+	
 	// output file
 	if fileInfo, err := os.Stat(outputFilePath); err != nil && !os.IsNotExist(err) {
 		return err
