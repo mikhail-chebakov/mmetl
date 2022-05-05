@@ -76,7 +76,13 @@ func checkSlackCmdF(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = slackTransformer.Transform(slackExport, "", true, true, false, "", false, nil)
+	err = slackTransformer.Transform(
+		&slack.TransformConfig{
+			SkipAttachments:        true,
+			DiscardInvalidProps:    true,
+			AuthDataAsEmail:        false,
+			ImportWorkflowMessages: false,
+		}, slackExport)
 	if err != nil {
 		return err
 	}
