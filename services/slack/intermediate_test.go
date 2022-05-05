@@ -604,7 +604,7 @@ func TestAddPostToThreads(t *testing.T) {
 				channel := &IntermediateChannel{Type: model.ChannelTypeOpen}
 				threads := newMemoryStorage()
 
-				AddPostToThreads(original, tc.Post, threads, channel, tc.Timestamps)
+				AddPostToThreads(original, tc.Post, threads, channel, tc.Timestamps, true)
 				newPost := threads.LookupThread("thread-ts")
 				require.NotNil(t, newPost)
 				require.Equal(t, tc.Post, newPost)
