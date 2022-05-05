@@ -30,6 +30,8 @@ type IntermediateChannel struct {
 	Type             model.ChannelType `json:"type"`
 }
 
+const WorkflowUserName = "imported-workflow"
+
 func (c *IntermediateChannel) Sanitise(logger log.FieldLogger) {
 	if c.Type == model.ChannelTypeDirect {
 		return
@@ -265,7 +267,7 @@ func (t *Transformer) TransformAllChannels(slackExport *SlackExport) error {
 	return nil
 }
 
-func AddPostToThreads(original SlackPost, post *IntermediatePost, threads ThreadsStorage, channel *IntermediateChannel, timestamps map[int64]bool) {
+func AddPostToThreads(original SlackPost, post *IntermediatePost, threads ThreadsStorage, channel *IntermediateChannel, timestamps map[int64]bool, importWorkflowPosts bool) {
 	// direct and group posts need the channel members in the import line
 	if channel.Type == model.ChannelTypeDirect || channel.Type == model.ChannelTypeGroup {
 		post.IsDirect = true
@@ -289,6 +291,9 @@ func AddPostToThreads(original SlackPost, post *IntermediatePost, threads Thread
 		rootPost := threads.LookupThread(original.ThreadTS)
 		if rootPost == nil {
 			log.Printf("ERROR processing post in thread, couldn't find rootPost: %+v\n", original)
+			return
+		}
+		if !importWorkflowPosts && rootPost.User == WorkflowUserName {
 			return
 		}
 		rootPost.Replies = append(rootPost.Replies, post)
@@ -385,8 +390,8 @@ func (t *Transformer) selectOrCreateWorkflowUser(post SlackPost) *IntermediateUs
 	}
 	newUser := &IntermediateUser{
 		Id:        userID,
-		Username:  "imported-workflow",
-		FirstName: "imported-workflow",
+		Username:  WorkflowUserName,
+		FirstName: WorkflowUserName,
 		LastName:  "",
 		Email:     "imported-workflow@tinkoff.ru",
 		Password:  model.NewId(),
@@ -472,7 +477,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					}
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
 
 			// file comment
 			case post.IsFileComment():
@@ -496,7 +501,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					CreateAt: SlackConvertTimeStamp(post.TimeStamp),
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
 
 			// bot message
 			case post.IsBotMessage():
@@ -546,7 +551,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					}
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
 
 			// channel join/leave messages
 			case post.IsJoinLeaveMessage():
@@ -578,7 +583,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					// Type:     model.POST_HEADER_CHANGE,
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
 
 			// change channel purpose message
 			case post.IsChannelPurposeMessage():
@@ -600,7 +605,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					// Type:     model.POST_HEADER_CHANGE,
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
 
 			// change channel name message
 			case post.IsChannelNameMessage():
@@ -622,7 +627,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					// Type:     model.POST_DISPLAYNAME_CHANGE,
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
 
 			default:
 				t.Logger.Warnf("Unable to import the message as its type is not supported. post_type=%s, post_subtype=%s", post.Type, post.SubType)
