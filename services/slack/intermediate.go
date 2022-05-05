@@ -129,7 +129,7 @@ type Intermediate struct {
 func (t *Transformer) transformUserName(user SlackUser) string {
 	// This is a crutch
 	email := user.Profile.Email
-	if strings.Contains(email, "tinkoff.") && strings.Contains(email, "@") {
+	if strings.Contains(email, "@tinkoff.") {
 		return email[:strings.Index(email, "@")]
 	}
 	return user.Username
@@ -421,7 +421,7 @@ func (t *Transformer) selectOrCreateWorkflowUser(post SlackPost) *IntermediateUs
 	return newUser
 }
 
-func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps, importWorkflowMessages bool, redisConfig *RedisConfig) error {
+func (t *Transformer) TransformPosts(cfg *TransformConfig, slackExport *SlackExport) error {
 	t.Logger.Info("Transforming posts")
 
 	newGroupChannels := []*IntermediateChannel{}
@@ -440,7 +440,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 		sort.Slice(channelPosts, func(i, j int) bool {
 			return SlackConvertTimeStamp(channelPosts[i].TimeStamp) < SlackConvertTimeStamp(channelPosts[j].TimeStamp)
 		})
-		threads, err := t.newChannelThreadsStorage(originalChannelName, redisConfig)
+		threads, err := t.newChannelThreadsStorage(originalChannelName, cfg.RedisConfig)
 		if err != nil {
 			return err
 		}
@@ -464,15 +464,15 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					Message:  post.Text,
 					CreateAt: SlackConvertTimeStamp(post.TimeStamp),
 				}
-				if (post.File != nil || post.Files != nil) && !skipAttachments {
+				if (post.File != nil || post.Files != nil) && !cfg.SkipAttachments {
 					if post.File != nil {
-						err := addFileToPost(post.File, slackExport.Uploads, newPost, attachmentsDir)
+						err := addFileToPost(post.File, slackExport.Uploads, newPost, cfg.AttachmentsDir)
 						if err != nil {
 							t.Logger.WithError(err).Error("Failed to add file to post")
 						}
 					} else if post.Files != nil {
 						for _, file := range post.Files {
-							err := addFileToPost(file, slackExport.Uploads, newPost, attachmentsDir)
+							err := addFileToPost(file, slackExport.Uploads, newPost, cfg.AttachmentsDir)
 							if err != nil {
 								t.Logger.WithError(err).Error("Failed to add file to post")
 							}
@@ -487,7 +487,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					if utf8.RuneCountInString(string(propsB)) <= model.PostPropsMaxRunes {
 						newPost.Props = props
 					} else {
-						if discardInvalidProps {
+						if cfg.DiscardInvalidProps {
 							t.Logger.Warn("Unable import post as props exceed the maximum character count. Skipping as --discard-invalid-props is enabled.")
 							continue
 						} else {
@@ -496,7 +496,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					}
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, cfg.ImportWorkflowMessages)
 
 			// file comment
 			case post.IsFileComment():
@@ -520,11 +520,11 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					CreateAt: SlackConvertTimeStamp(post.TimeStamp),
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, cfg.ImportWorkflowMessages)
 
 			// bot message
 			case post.IsBotMessage():
-				if !importWorkflowMessages {
+				if !cfg.ImportWorkflowMessages {
 					continue
 				}
 				if post.User == "" {
@@ -538,15 +538,15 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					Message:  post.Text,
 					CreateAt: SlackConvertTimeStamp(post.TimeStamp),
 				}
-				if (post.File != nil || post.Files != nil) && !skipAttachments {
+				if (post.File != nil || post.Files != nil) && !cfg.SkipAttachments {
 					if post.File != nil {
-						err := addFileToPost(post.File, slackExport.Uploads, newPost, attachmentsDir)
+						err := addFileToPost(post.File, slackExport.Uploads, newPost, cfg.AttachmentsDir)
 						if err != nil {
 							t.Logger.WithError(err).Error("Failed to add file to post")
 						}
 					} else if post.Files != nil {
 						for _, file := range post.Files {
-							err := addFileToPost(file, slackExport.Uploads, newPost, attachmentsDir)
+							err := addFileToPost(file, slackExport.Uploads, newPost, cfg.AttachmentsDir)
 							if err != nil {
 								t.Logger.WithError(err).Error("Failed to add file to post")
 							}
@@ -561,7 +561,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					if utf8.RuneCountInString(string(propsB)) <= model.PostPropsMaxRunes {
 						newPost.Props = props
 					} else {
-						if discardInvalidProps {
+						if cfg.DiscardInvalidProps {
 							t.Logger.Warn("Unable import post as props exceed the maximum character count. Skipping as --discard-invalid-props is enabled.")
 							continue
 						} else {
@@ -570,7 +570,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					}
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, cfg.ImportWorkflowMessages)
 
 			// channel join/leave messages
 			case post.IsJoinLeaveMessage():
@@ -602,7 +602,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					// Type:     model.POST_HEADER_CHANGE,
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, cfg.ImportWorkflowMessages)
 
 			// change channel purpose message
 			case post.IsChannelPurposeMessage():
@@ -624,7 +624,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					// Type:     model.POST_HEADER_CHANGE,
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, cfg.ImportWorkflowMessages)
 
 			// change channel name message
 			case post.IsChannelNameMessage():
@@ -646,7 +646,7 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 					// Type:     model.POST_DISPLAYNAME_CHANGE,
 				}
 
-				AddPostToThreads(post, newPost, threads, channel, timestamps, importWorkflowMessages)
+				AddPostToThreads(post, newPost, threads, channel, timestamps, cfg.ImportWorkflowMessages)
 
 			default:
 				t.Logger.Warnf("Unable to import the message as its type is not supported. post_type=%s, post_subtype=%s", post.Type, post.SubType)
@@ -663,18 +663,34 @@ func (t *Transformer) TransformPosts(slackExport *SlackExport, attachmentsDir st
 	return nil
 }
 
-func (t *Transformer) Transform(slackExport *SlackExport, attachmentsDir string, skipAttachments, discardInvalidProps, authDataAsEmail bool, authService string, importWorkflowMessages bool, redisConfig *RedisConfig) error {
-	t.TransformUsers(slackExport.Users, authDataAsEmail, authService)
+type TransformConfig struct {
+	AttachmentsDir         string
+	SkipAttachments        bool
+	DiscardInvalidProps    bool
+	AuthDataAsEmail        bool
+	AuthService            string
+	ImportWorkflowMessages bool
+	SkipPosts              bool
+	SkipChannels           bool
+	RedisConfig            *RedisConfig
+}
 
-	if err := t.TransformAllChannels(slackExport); err != nil {
-		return err
+func (t *Transformer) Transform(cfg *TransformConfig, slackExport *SlackExport) error {
+	t.TransformUsers(slackExport.Users, cfg.AuthDataAsEmail, cfg.AuthService)
+
+	if !cfg.SkipChannels {
+		if err := t.TransformAllChannels(slackExport); err != nil {
+			return err
+		}
+
+		t.PopulateUserMemberships()
+		t.PopulateChannelMemberships()
 	}
 
-	t.PopulateUserMemberships()
-	t.PopulateChannelMemberships()
-
-	if err := t.TransformPosts(slackExport, attachmentsDir, skipAttachments, discardInvalidProps, importWorkflowMessages, redisConfig); err != nil {
-		return err
+	if !cfg.SkipPosts {
+		if err := t.TransformPosts(cfg, slackExport); err != nil {
+			return err
+		}
 	}
 
 	return nil
