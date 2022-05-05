@@ -126,15 +126,6 @@ type Intermediate struct {
 	Posts           []*IntermediatePost          `json:"posts"`
 }
 
-func (t *Transformer) transformUserName(user SlackUser) string {
-	// This is a crutch
-	email := user.Profile.Email
-	if strings.Contains(email, "@tinkoff.") {
-		return email[:strings.Index(email, "@")]
-	}
-	return user.Username
-}
-
 func (t *Transformer) TransformUsers(users []SlackUser, authDataAsEmail bool, authService string) {
 	t.Logger.Info("Transforming users")
 
@@ -142,7 +133,7 @@ func (t *Transformer) TransformUsers(users []SlackUser, authDataAsEmail bool, au
 	for _, user := range users {
 		newUser := &IntermediateUser{
 			Id:        user.Id,
-			Username:  t.transformUserName(user),
+			Username:  user.Username,
 			FirstName: user.Profile.FirstName,
 			LastName:  user.Profile.LastName,
 			Position:  user.Profile.Title,
