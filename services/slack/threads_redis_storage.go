@@ -57,6 +57,7 @@ func (s *redisStorage) StoreThread(threadTS string, rootPost *IntermediatePost) 
 	s.memory.StoreThread(threadTS, rootPost)
 	strippedPost := *rootPost
 	strippedPost.Replies = nil
+	strippedPost.Attachments = nil
 	postJson, err := json.Marshal(&strippedPost)
 	if err != nil {
 		log.Errorf("could not marshal stripped post: %v", err)
