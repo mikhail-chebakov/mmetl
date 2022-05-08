@@ -378,7 +378,7 @@ func addFileToPost(file *SlackFile, uploads map[string]*zip.File, post *Intermed
 	return nil
 }
 
-func (t *Transformer) newChannelThreadsStorage(channelName string, redisConfig *RedisConfig) (ThreadsStorage, error) {
+func (t *Transformer) newChannelThreadsStorage(channelName, attachmentsDir string, redisConfig *RedisConfig) (ThreadsStorage, error) {
 	if redisConfig == nil {
 		return newMemoryStorage(), nil
 	}
@@ -389,7 +389,7 @@ func (t *Transformer) newChannelThreadsStorage(channelName string, redisConfig *
 		}
 		t.redisFactory = factory
 	}
-	return t.redisFactory.newRedisStorage(channelName), nil
+	return t.redisFactory.newRedisStorage(channelName, attachmentsDir), nil
 }
 
 func (t *Transformer) selectOrCreateWorkflowUser(post SlackPost) *IntermediateUser {
@@ -431,7 +431,7 @@ func (t *Transformer) TransformPosts(cfg *TransformConfig, slackExport *SlackExp
 		sort.Slice(channelPosts, func(i, j int) bool {
 			return SlackConvertTimeStamp(channelPosts[i].TimeStamp) < SlackConvertTimeStamp(channelPosts[j].TimeStamp)
 		})
-		threads, err := t.newChannelThreadsStorage(originalChannelName, cfg.RedisConfig)
+		threads, err := t.newChannelThreadsStorage(originalChannelName, cfg.AttachmentsDir, cfg.RedisConfig)
 		if err != nil {
 			return err
 		}

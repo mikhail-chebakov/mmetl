@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
@@ -16,9 +17,10 @@ type RedisConfig struct {
 }
 
 type redisStorage struct {
-	memory  ThreadsStorage
-	client  *redis.Client
-	channel string
+	memory         ThreadsStorage
+	client         *redis.Client
+	attachmentsDir string
+	channel        string
 }
 
 func (s *redisStorage) threadKey(threadTS string) string {
@@ -57,7 +59,12 @@ func (s *redisStorage) StoreThread(threadTS string, rootPost *IntermediatePost) 
 	s.memory.StoreThread(threadTS, rootPost)
 	strippedPost := *rootPost
 	strippedPost.Replies = nil
-	strippedPost.Attachments = nil
+	strippedPost.Attachments = make([]string, 0, len(rootPost.Attachments))
+	for _, attachment := range rootPost.Attachments {
+		if !strings.HasPrefix(attachment, s.attachmentsDir) {
+			strippedPost.Attachments = append(strippedPost.Attachments, attachment)
+		}
+	}
 	postJson, err := json.Marshal(&strippedPost)
 	if err != nil {
 		log.Errorf("could not marshal stripped post: %v", err)
@@ -88,10 +95,11 @@ func newRedisFactory(cfg *RedisConfig) (*redisFactory, error) {
 	}, nil
 }
 
-func (s *redisFactory) newRedisStorage(channel string) ThreadsStorage {
+func (s *redisFactory) newRedisStorage(channel, attachmentsdir string) ThreadsStorage {
 	return &redisStorage{
-		memory:  newMemoryStorage(),
-		client:  s.client,
-		channel: channel,
+		memory:         newMemoryStorage(),
+		client:         s.client,
+		channel:        channel,
+		attachmentsDir: attachmentsdir,
 	}
 }
