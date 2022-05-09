@@ -42,6 +42,7 @@ func (s *redisStorage) LookupThread(threadTS string) *IntermediatePost {
 		return nil
 	}
 	log.Printf("Found thread root post for thread %s in redis for channel %s", threadTS, s.channel)
+	result.Sanitise()
 	s.memory.StoreThread(threadTS, &result)
 	return &result
 }

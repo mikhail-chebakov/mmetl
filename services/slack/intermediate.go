@@ -31,6 +31,7 @@ type IntermediateChannel struct {
 }
 
 const WorkflowUserName = "imported-workflow"
+const MaxPostSize = 65535
 
 func (c *IntermediateChannel) Sanitise(logger log.FieldLogger) {
 	if c.Type == model.ChannelTypeDirect {
@@ -115,6 +116,12 @@ type IntermediatePost struct {
 	Replies        []*IntermediatePost `json:"replies"`
 	IsDirect       bool                `json:"is_direct"`
 	ChannelMembers []string            `json:"channel_members"`
+}
+
+func (s *IntermediatePost) Sanitise() {
+	if utf8.RuneCountInString(s.Message) > MaxPostSize {
+		s.Message = string([]rune(s.Message)[:MaxPostSize])
+	}
 }
 
 type Intermediate struct {
@@ -310,6 +317,7 @@ func AddPostToThreads(original SlackPost, post *IntermediatePost, threads Thread
 		return
 	}
 
+	post.Sanitise()
 	// if post is the root of a thread
 	if original.TimeStamp == original.ThreadTS {
 		if threads.HasThread(original.ThreadTS) {
