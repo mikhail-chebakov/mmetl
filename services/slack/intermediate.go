@@ -31,7 +31,9 @@ type IntermediateChannel struct {
 }
 
 const WorkflowUserName = "imported-workflow"
-const MaxPostSize = 65535
+
+// PosgreSQLMaxPostSize is the default PostgreSQL max post size in mattermost 6.6
+const PosgreSQLMaxPostSize = 65535 / 4
 
 func (c *IntermediateChannel) Sanitise(logger log.FieldLogger) {
 	if c.Type == model.ChannelTypeDirect {
@@ -119,8 +121,8 @@ type IntermediatePost struct {
 }
 
 func (s *IntermediatePost) Sanitise() {
-	if utf8.RuneCountInString(s.Message) > MaxPostSize {
-		s.Message = string([]rune(s.Message)[:MaxPostSize])
+	if utf8.RuneCountInString(s.Message) > PosgreSQLMaxPostSize {
+		s.Message = string([]rune(s.Message)[:PosgreSQLMaxPostSize])
 	}
 }
 
